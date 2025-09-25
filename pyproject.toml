@@ -12,6 +12,8 @@ pandas = "*"
 openpyxl = "*"
 dash = "*"
 dash-bootstrap-components = "*"
+attrs = "*"
+cattrs = "*"
 
 [build-system]
 requires = ["poetry-core"]
