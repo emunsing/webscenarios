@@ -91,13 +91,23 @@ def financial_model(principal, years, interest_annual):
         payment = principal * (period_r * (1 + period_r) ** periods) / ((1 + period_r) ** periods - 1)
     return payment
 
-def myfun(x, y, years, interest_annual) -> OutputData:
+def modeling_pipeline(x, y, years, interest_annual, previous_output: OutputData | None, design_changed=True, financials_changed=True) -> OutputData:
     # Design variables: 
-    performance = performance_model(x, y) # In production this may take a long time to run the full design function.
+    if previous_output is None:
+        previous_output = OutputData()
+
+    if design_changed:
+        performance = performance_model(x, y) # In production this may take a long time to run the full design function.
+    else:
+        performance = previous_output.performance
 
     # Financial model
-    principal = x * y
-    payment = financial_model(principal, years, interest_annual)
+    if financials_changed or design_changed:
+        principal = x * y
+        payment = financial_model(principal, years, interest_annual)
+    else:
+        principal = previous_output.total_expense
+        payment = previous_output.monthly_payment
 
     # Result consolidation
     res = OutputData()
@@ -241,7 +251,7 @@ def run_scenario(n_clicks, x_val, y_val, years, interest):
     
     # For now, let's just run the computation without change detection
     # We'll add that back once we get the basic functionality working
-    out = myfun(x_val, y_val, years, interest)
+    out = modeling_pipeline(x_val, y_val, years, interest)
     
     output_content = [
         html.Div(f"Total expense (principal) = {out.total_expense:.3f}"),
