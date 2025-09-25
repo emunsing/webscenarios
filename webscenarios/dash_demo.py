@@ -3,20 +3,36 @@ import dash_bootstrap_components as dbc
 
 # Computation
 class OutputData:
-    def __init__(self, total_expense=0.0, monthly_payment=0.0):
+    def __init__(self, performance=0.0, total_expense=0.0, monthly_payment=0.0):
+        self.performance = performance
         self.total_expense = total_expense
         self.monthly_payment = monthly_payment
 
-def myfun(x, y, years, interest_annual) -> OutputData:
-    principal = x * y
+
+def performance_calculator(x,y):
+    return x ** 1.3 + y ** 1.2
+
+def financial_metrics(principal, years, annual_r):
     periods = years * 12
-    period_r = interest_annual / 12.0
-    # guard: if interest = 0
+    period_r = annual_r / 12.0
+
     if period_r == 0:
         payment = principal / periods if periods > 0 else 0
     else:
         payment = principal * (period_r * (1 + period_r) ** periods) / ((1 + period_r) ** periods - 1)
+    return payment
+
+def myfun(x, y, years, interest_annual) -> OutputData:
+    # Performance calculation: This could take a long time to compute.
+    performance = performance_calculator(x, y)
+    principal = x * y
+    
+    # Financial calculation: 
+    payment = financial_metrics(principal, years, interest_annual)
+
+    # Output data 
     res = OutputData()
+    res.performance = performance
     res.total_expense = principal
     res.monthly_payment = payment
     return res
