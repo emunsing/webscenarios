@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "webscenarios"
+version = "0.1.0"
+description = ""
+authors = ["emunsing <eric.munsing@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+panel = "*"
+pandas = "*"
+openpyxl = "*"
+dash = "*"
+dash-bootstrap-components = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
