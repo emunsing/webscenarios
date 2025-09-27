@@ -33,7 +33,7 @@ def create_scenario(idx, value=1.0):
 
 # --- Scenario registry and container ---
 scenarios = {}
-scenarios_container = pn.Column()
+scenarios_container = pn.Row(styles={"overflow-x": "auto", "flex-wrap": "nowrap"})
 
 def refresh_scenarios():
     """Rebuild the container from current scenario dict."""
