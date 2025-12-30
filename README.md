@@ -28,3 +28,27 @@ This MVP is intended for situations where the compute function may be high-laten
 and so we don't want to rerun the compute operation on all scenarios when one scenario changes. 
 This is much closer to what a user might expect, where if they click the Compute button on one scenario, then just 
 that scenario is run.
+
+## Dynamic Form-builder
+
+We want to be able to add widgets without having to define them in code.
+- Need to be able to dynamically add additional elements
+- Need to be able to save templates
+- Inputs need to be hooked up with values in the input data model
+- Outputs need to be hooked up with values in the output data model
+
+We want the following widgets:
+
+Input: Needs to be wired to a model input
+- pn.widgets.TextInput
+- pn.widgets.IntInput
+- pn.widgets.Checkbox
+
+Output:  These will be static, but need to be hooked up to the data from the model
+- 
+
+Containers:
+- pn.Row
+- pn.Column
+- pn.Card
+- 
