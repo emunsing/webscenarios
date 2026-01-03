@@ -5,6 +5,7 @@ from enum import Enum
 import pandas as pd
 import numpy as np
 import operator
+from pandas.core.generic import NDFrame
 
 
 class Method(Enum):
@@ -52,7 +53,63 @@ def run_model(inputs: ModelInputs) -> ModelOutputs:
                         raw_product_series=raw_product_df)
 
 
+## CLASS TEMPLATING
 
+# USER DEFINED
+default_input_instance = ModelInputs()
+data_result = run_model(default_input_instance)  # This may need to handle class/instance methods
+
+# AUTO-GENERATED
+output_data_class = type(data_result)
+output_data_attributes = attrs.fields(output_data_class)
+
+@attrs.define
+class InputFieldInfo:
+    name: str
+    dtype: type
+    default_value: any
+
+@attrs.define
+class OutputFieldInfo:
+    name: str
+    dtype: type
+    datetime_index: bool = False
+    index_names: list[str] = []
+    datetime_columns: bool = False
+    column_names: list[str] = []
+
+# Build a collection of *input* fields from the data input
+input_fields = {}
+input_data_attributes = attrs.fields(type(default_input_instance))
+for attribute in input_data_attributes:
+    field_info = InputFieldInfo(
+        name=attribute.name,
+        dtype=attribute.type,
+        default_value=attribute.default
+    )
+    input_fields[attribute.name] = field_info
+
+
+# Build a collection of *output* fields from the data output
+displayable_output_fields = {}
+
+for attribute in output_data_attributes:
+    field_value = data_result.__getattribute__(attribute.name)
+    if not isinstance(field_value, NDFrame):
+        continue
+    field_info = OutputFieldInfo(
+        name=attribute.name,
+        dtype=type(field_value),
+        datetime_index=isinstance(field_value.index, pd.DatetimeIndex),
+        index_names=list(field_value.index.names),
+        datetime_columns=False if isinstance(field_value, pd.Series) else isinstance(field_value.columns, pd.DatetimeIndex),
+        column_names=[None] if isinstance(field_value, pd.Series) else list(field_value.columns.names)    
+    )
+    displayable_output_fields[attribute.name] = field_info
+
+
+
+## PANEL TOOLING
 
 CARD_MARGIN = (10, 10, 10, 10)
 
