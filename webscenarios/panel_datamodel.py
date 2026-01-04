@@ -108,11 +108,150 @@ for attribute in output_data_attributes:
     )
     displayable_output_fields[attribute.name] = field_info
 
-
+# 
+PANEL_CLASS_MAP = {
+    "TextInput": pn.widgets.TextInput,  # Apply this to all `str` inputs. Expose: `value` (string TextInput), `description` (string TextInput)
+    "IntInput": pn.widgets.IntInput,  # Apply this to all `int` inputs. Expose: `value` (int IntInput), `start` (int IntInput), `end` (int IntInput), , `description` (string TextInput)
+    "Checkbox": pn.widgets.Checkbox,  # Apply this to all `bool` inputs. Expose: `value` (true/false Select), `description` (string TextInput)
+    "FloatInput": pn.widgets.FloatInput,  # Apply this to all `float` inputs. Expose: `value` (float FloatInput), `start` (float FloatInput), `end` (float FloatInput), `step` (float FloatInput) , `description` (string TextInput)
+    "Select": pn.widgets.Select,  # Apply this to all `Enum` subclass inputs. Expose: `value` (Select of all Enum values), `description` (string TextInput)
+}
 
 ## PANEL TOOLING
 
-CARD_MARGIN = (10, 10, 10, 10)
+CARD_MARGIN = (7, 7, 7, 7)  # top, right, bottom, left
+WIDGET_MARGIN = (5, 5, 5, 5)  # top, right, bottom, left
+
+def get_panel_widget_type(field_type: type) -> str:
+    """Determine which Panel widget type to use based on Python type"""
+    if field_type == str:
+        return "TextInput"
+    elif field_type == int:
+        return "IntInput"
+    elif field_type == bool:
+        return "Checkbox"
+    elif field_type == float:
+        return "FloatInput"
+    elif isinstance(field_type, type) and issubclass(field_type, Enum):
+        return "Select"
+    else:
+        # Default to TextInput for unknown types
+        return "TextInput"
+
+def create_widget_config_fields(field_info: InputFieldInfo, widget_type: str) -> dict:
+    """
+    Create configuration input fields for a widget based on its type.
+    Returns a dictionary mapping field names to Panel widget objects.
+    """
+    config_fields = {}
+    default_value = field_info.default_value
+    
+    if widget_type == "TextInput":
+        config_fields["value"] = pn.widgets.TextInput(
+            name="Default Value",
+            value=str(default_value) if default_value is not None else "",
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+        config_fields["description"] = pn.widgets.TextInput(
+            name="Additional Description",
+            value="",
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+    
+    elif widget_type == "IntInput":
+        config_fields["value"] = pn.widgets.IntInput(
+            name="Default Value",
+            value=int(default_value) if default_value is not None else 0,
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+        config_fields["description"] = pn.widgets.TextInput(
+            name="Additional Description",
+            value="",
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+        config_fields["start"] = pn.widgets.IntInput(
+            name="Start",
+            value=None,
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+        config_fields["end"] = pn.widgets.IntInput(
+            name="End",
+            value=None,
+            width=300,
+            margin=(5, 0, 5, 0)
+        )
+
+    
+    elif widget_type == "Checkbox":
+        config_fields["value"] = pn.widgets.Select(
+            name="Default Value",
+            options=[True, False],
+            value=bool(default_value) if default_value is not None else False,
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+        config_fields["description"] = pn.widgets.TextInput(
+            name="Additional Description",
+            value="",
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+    
+    elif widget_type == "FloatInput":
+        config_fields["value"] = pn.widgets.FloatInput(
+            name="Default Value",
+            value=float(default_value) if default_value is not None else 0.0,
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+        config_fields["description"] = pn.widgets.TextInput(
+            name="Additional Description",
+            value="",
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+        config_fields["start"] = pn.widgets.FloatInput(
+            name="Start",
+            value=None,
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+        config_fields["end"] = pn.widgets.FloatInput(
+            name="End",
+            value=None,
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+        config_fields["step"] = pn.widgets.FloatInput(
+            name="Step",
+            value=None,
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+    
+    elif widget_type == "Select":
+        # Get Enum values from the field type
+        enum_values = [e.value for e in field_info.dtype]
+        config_fields["value"] = pn.widgets.Select(
+            name="Default Value",
+            options=enum_values,
+            value=default_value.value if isinstance(default_value, Enum) else enum_values[0] if enum_values else None,
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+        config_fields["description"] = pn.widgets.TextInput(
+            name="Additional Description",
+            value="",
+            width=300,
+            margin=WIDGET_MARGIN
+        )
+    
+    return config_fields
 
 # Global registry mapping container names to Panel container objects
 container_registry = {
@@ -212,26 +351,36 @@ def make_reorderable_card(title: str, body, parent_container, is_container: bool
     if not isinstance(body, list):
         body = [body]
     
-    # For widget cards (not containers), add an editable name field
+    # For widget cards (not containers), add configuration fields
     name_edit_widget = None
+    widget_config_fields = {}
     if not is_container and variable_name is not None:
-        # Create text input for custom name editing
-        current_custom_name = custom_name if custom_name else ""
-        name_edit_widget = pn.widgets.TextInput(
-            name="Display Name",
-            value=current_custom_name,
-            width=250,
-            margin=(5, 0, 5, 0)
-        )
-        
-        def on_name_change(event):
-            """Handle custom name change"""
-            new_custom_name = event.new
-            card._custom_name = new_custom_name
-            update_card_title(card, new_custom_name, variable_name)
-        
-        name_edit_widget.param.watch(on_name_change, 'value')
-        body = [name_edit_widget] + body
+        # Get field info to determine widget type and create config fields
+        field_info = input_fields.get(variable_name)
+        if field_info:
+            widget_type = get_panel_widget_type(field_info.dtype)
+            widget_config_fields = create_widget_config_fields(field_info, widget_type)
+            
+            # Create text input for custom name editing
+            current_custom_name = custom_name if custom_name else ""
+            name_edit_widget = pn.widgets.TextInput(
+                name="Display Name",
+                value=current_custom_name,
+                width=300,
+                margin=(5, 0, 5, 0)
+            )
+            
+            def on_name_change(event):
+                """Handle custom name change"""
+                new_custom_name = event.new
+                card._custom_name = new_custom_name
+                update_card_title(card, new_custom_name, variable_name)
+            
+            name_edit_widget.param.watch(on_name_change, 'value')
+            
+            # Build body with: name field, then all config fields, then original body
+            config_field_list = [name_edit_widget] + list(widget_config_fields.values())
+            body = config_field_list + body
 
     header = pn.Row(
         pn.pane.Markdown(f"**{title}**", margin=(6, 8, 0, 8)),
@@ -277,6 +426,12 @@ def make_reorderable_card(title: str, body, parent_container, is_container: bool
         card._variable_name = variable_name
         card._custom_name = custom_name if custom_name else ""
         card._name_edit_widget = name_edit_widget
+        card._widget_config_fields = widget_config_fields
+        # Store field info and widget type for later use
+        field_info = input_fields.get(variable_name)
+        if field_info:
+            card._widget_type = get_panel_widget_type(field_info.dtype)
+            card._field_info = field_info
     
     def update_delete_button_state():
         """Update delete button state based on whether container has children"""
@@ -406,13 +561,11 @@ def create_new_widget_card(_):
     if field_info is None:
         return
     
-    # Create appropriate widget based on field type
-    # For now, just use a markdown placeholder - this will be expanded later
-    widget_body = pn.pane.Markdown(f"Widget for {variable_name} ({field_info.dtype.__name__})")
-    
+    # Create the card - config fields will be added automatically in make_reorderable_card
+    # Pass empty body since config fields are the main content
     new_card = make_reorderable_card(
         title, 
-        widget_body, 
+        [], 
         parent_container=parent_container,
         variable_name=variable_name,
         custom_name=custom_name
