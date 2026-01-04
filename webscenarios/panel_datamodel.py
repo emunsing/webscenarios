@@ -89,6 +89,7 @@ for attribute in input_data_attributes:
     )
     input_fields[attribute.name] = field_info
 
+available_input_fields = list(input_fields.keys())
 
 # Build a collection of *output* fields from the data output
 displayable_output_fields = {}
@@ -121,12 +122,51 @@ container_registry = {
 # Global list to track all cards and their metadata
 all_cards = []  # List of tuples: (card, is_container, container_obj)
 
+# New widget block
+add_card_button = pn.widgets.Button(
+    name="➕ Add New Widget", 
+    button_type="primary", 
+    width=150,
+    disabled=len(available_input_fields) == 0
+)
+
+card_name_input = pn.widgets.TextInput(
+    name="Display Name",
+    value="",
+    width=200
+)
+
+card_variable_input = pn.widgets.Select(
+    name="Variable",
+    options=available_input_fields if available_input_fields else [],
+    value=available_input_fields[0] if available_input_fields else None,
+    width=200
+)
+
 def update_all_dropdowns():
     """Update all parent_container_dropdown widgets with current container options"""
     container_names = list(container_registry.keys())
     for card, _, _ in all_cards:
         if hasattr(card, '_parent_container_dropdown'):
             card._parent_container_dropdown.options = container_names
+
+def update_available_input_fields_dropdown():
+    """Update the available input fields dropdown and button state"""
+
+    print(f"Updating available input fields dropdown with: {available_input_fields}")
+    card_variable_input.options = available_input_fields.copy() if available_input_fields else [""]
+    card_variable_input.value = available_input_fields[0] if available_input_fields else ""
+    add_card_button.disabled = len(available_input_fields) == 0
+
+def update_card_title(card, custom_name: str, variable_name: str):
+    """Update card title and header markdown based on custom name and variable name"""
+    title = f"{custom_name.strip() if custom_name.strip() else variable_name} [{variable_name}]"
+    card.title = title
+    # Update the header markdown
+    for obj in card.header.objects:
+        if isinstance(obj, pn.pane.Markdown):
+            obj.object = f"**{title}**"
+            break
 
 def move(container, idx: int, delta: int):
     objs = list(container.objects)
@@ -146,7 +186,8 @@ def update_delete_button_state_for_card_helper(card_to_update, container_obj):
             if isinstance(obj, pn.widgets.Button) and obj.name == "🗑️":
                 obj.disabled = has_children
 
-def make_reorderable_card(title: str, body, parent_container, is_container: bool = False, container_name: str = None):
+def make_reorderable_card(title: str, body, parent_container, is_container: bool = False, container_name: str = None, variable_name: str = None, custom_name: str = None):
+    """Create a reorderable card. For widget cards, variable_name and custom_name are used to generate the title."""
     up = pn.widgets.Button(name="▲", width=32, button_type="light")
     down = pn.widgets.Button(name="▼", width=32, button_type="light")
     
@@ -170,6 +211,27 @@ def make_reorderable_card(title: str, body, parent_container, is_container: bool
 
     if not isinstance(body, list):
         body = [body]
+    
+    # For widget cards (not containers), add an editable name field
+    name_edit_widget = None
+    if not is_container and variable_name is not None:
+        # Create text input for custom name editing
+        current_custom_name = custom_name if custom_name else ""
+        name_edit_widget = pn.widgets.TextInput(
+            name="Display Name",
+            value=current_custom_name,
+            width=250,
+            margin=(5, 0, 5, 0)
+        )
+        
+        def on_name_change(event):
+            """Handle custom name change"""
+            new_custom_name = event.new
+            card._custom_name = new_custom_name
+            update_card_title(card, new_custom_name, variable_name)
+        
+        name_edit_widget.param.watch(on_name_change, 'value')
+        body = [name_edit_widget] + body
 
     header = pn.Row(
         pn.pane.Markdown(f"**{title}**", margin=(6, 8, 0, 8)),
@@ -211,6 +273,10 @@ def make_reorderable_card(title: str, body, parent_container, is_container: bool
     card._is_container = is_container
     card._container_obj = container_obj
     card._current_parent = parent_container
+    if not is_container and variable_name is not None:
+        card._variable_name = variable_name
+        card._custom_name = custom_name if custom_name else ""
+        card._name_edit_widget = name_edit_widget
     
     def update_delete_button_state():
         """Update delete button state based on whether container has children"""
@@ -238,6 +304,12 @@ def make_reorderable_card(title: str, body, parent_container, is_container: bool
         if card in objs:
             objs.remove(card)
             current_parent.objects = objs
+            
+            # Re-add variable to available_input_fields if this is a widget card
+            if not is_container and hasattr(card, '_variable_name') and card._variable_name:
+                if card._variable_name not in available_input_fields:
+                    available_input_fields.append(card._variable_name)
+                    update_available_input_fields_dropdown()
             
             # Remove from registry if it's a container
             if is_container and container_obj is not None:
@@ -312,60 +384,59 @@ def make_reorderable_card(title: str, body, parent_container, is_container: bool
 cards_col = pn.Column(sizing_mode="stretch_width")
 container_registry["Form"] = cards_col
 
-c1 = make_reorderable_card("Card A", body=[pn.pane.Markdown("Content A")], parent_container=cards_col)
-c2 = make_reorderable_card("Card B", body=[pn.pane.Markdown("Content B")], parent_container=cards_col)
-c3 = make_reorderable_card("Card C", body=[pn.pane.Markdown("Content C")], parent_container=cards_col)
-cards_col.objects = [c1, c2, c3]
 
-
-# New Widget Block
-
-def generate_default_widget_name():
-    """Generate a default unique card title"""
-    existing_titles = [card.title for card in cards_col.objects if hasattr(card, 'title')]
-    card_num = len(existing_titles) + 1
-    if card_num <= 26:
-        title = f"Card {chr(64 + card_num)}"  # A, B, C, D, etc.
-    else:
-        title = f"Card {card_num}"  # Use numbers after Z
-    
-    # Find next available title if current one exists
-    counter = 1
-    while title in existing_titles:
-        if card_num + counter <= 26:
-            title = f"Card {chr(64 + card_num + counter)}"
-        else:
-            title = f"Card {card_num + counter}"
-        counter += 1
-    
-    return title
-
-card_name_input = pn.widgets.TextInput(
-    name="Widget Name",
-    value=generate_default_widget_name(),
-    width=200
-)
 
 def create_new_widget_card(_):
-    # Use the value from the text input, or generate default if empty
-    title = card_name_input.value.strip() if card_name_input.value.strip() else generate_default_widget_name()
+    # Get the selected variable
+    variable_name = card_variable_input.value
+    if not variable_name or variable_name not in available_input_fields:
+        return
+    
+    # Get custom name from input
+    custom_name = card_name_input.value.strip()
+    
+    # Generate title
+    title = f"{custom_name if custom_name else variable_name} [{variable_name}]"
     
     # Default to Form container
     parent_container = container_registry.get("Form", cards_col)
     
-    new_card = make_reorderable_card(title, pn.pane.Markdown(f"Content {title.split()[-1]}"), parent_container=parent_container)
+    # Get field info for the variable
+    field_info = input_fields.get(variable_name)
+    if field_info is None:
+        return
+    
+    # Create appropriate widget based on field type
+    # For now, just use a markdown placeholder - this will be expanded later
+    widget_body = pn.pane.Markdown(f"Widget for {variable_name} ({field_info.dtype.__name__})")
+    
+    new_card = make_reorderable_card(
+        title, 
+        widget_body, 
+        parent_container=parent_container,
+        variable_name=variable_name,
+        custom_name=custom_name
+    )
     parent_objs = list(parent_container.objects)
     parent_objs.append(new_card)
     parent_container.objects = parent_objs
     
-    # Update the text input to the next default value
-    card_name_input.value = generate_default_widget_name()
+    # Remove variable from available_input_fields
+    print(f"Available input fields: {available_input_fields}")
+    if variable_name in available_input_fields:
+        print("Removing variable from available_input_fields")
+        available_input_fields.remove(variable_name)
+        update_available_input_fields_dropdown()
+        print(f"After removal, available input fields: {available_input_fields}")
+    
+    # Clear the input fields
+    card_name_input.value = ""
 
-add_card_button = pn.widgets.Button(name="➕ Add New Widget", button_type="primary", width=150)
 add_card_button.on_click(create_new_widget_card)
 
 new_widget_block = pn.Column(
             pn.pane.Markdown("## New Widget"),
+            card_variable_input,
             card_name_input,
             add_card_button,
         )
@@ -422,7 +493,7 @@ new_container_block = pn.Column(
             container_name_input,
             add_container_button,
         )
-
+update_available_input_fields_dropdown()  # This call is needed to make sure that we don't have the dropdown state tied to a stale or mutated list, which would prevent redrawing
 
 # Main entrypoint
 
