@@ -5,6 +5,7 @@ from enum import Enum
 import pandas as pd
 import numpy as np
 import operator
+import json
 from pandas.core.generic import NDFrame
 
 
@@ -829,9 +830,211 @@ def update_rendered_form():
         import traceback
         traceback.print_exc()
 
+def deserialize_card(card_dict: dict, parent_container) -> tuple:
+    """
+    Deserialize a card dictionary and create the corresponding Panel card.
+    Returns (card, used_variables) where used_variables is a set of variable names.
+    """
+    used_variables = set()
+    
+    if card_dict.get("type") == "container":
+        # Create a container card
+        container_type = card_dict.get("container_type", "Column")
+        title = card_dict.get("title", "Container")
+        
+        # Determine container_name format
+        if container_type == "Row":
+            container_name = f"Row: {title.replace('Row: ', '')}"
+        else:
+            container_name = title
+        
+        # Create the container card
+        container_card = make_reorderable_card(
+            title,
+            body=[pn.pane.Markdown(f"Container: {title}")],
+            parent_container=parent_container,
+            is_container=True,
+            container_name=container_name
+        )
+        
+        # Register the container if it's not "Form"
+        if container_card._container_obj is not None:
+            # Extract clean container name (remove "Row: " or "Collapsible Container: " prefix)
+            container_name_clean = title
+            if title.startswith("Row: "):
+                container_name_clean = title[5:]  # Remove "Row: "
+            elif title.startswith("Column: "):
+                container_name_clean = title[8:]  # Remove "Column: "
+            # Also handle if container_name was already set during creation
+            
+            if container_name_clean not in container_registry and container_name_clean != "Form":
+                container_registry[container_name_clean] = container_card._container_obj
+        
+        # Process children
+        children_dicts = card_dict.get("children", [])
+        for child_dict in children_dicts:
+            child_card, child_vars = deserialize_card(child_dict, container_card._container_obj)
+            used_variables.update(child_vars)
+            if container_card._container_obj is not None:
+                container_card._container_obj.objects = list(container_card._container_obj.objects) + [child_card]
+        
+        return container_card, used_variables
+    
+    elif card_dict.get("type") == "widget":
+        # Create a widget card
+        variable_name = card_dict.get("input_field")
+        
+        if variable_name is None:
+            raise ValueError("Widget card missing 'input_field'")
+        
+        used_variables.add(variable_name)
+        
+        # Extract custom name from the full name
+        full_name = card_dict.get("name", variable_name)
+        if f" [{variable_name}]" in full_name:
+            custom_name = full_name.replace(f" [{variable_name}]", "")
+        else:
+            # If it doesn't have the pattern, check if it's just the variable name
+            custom_name = "" if full_name == variable_name else full_name
+        
+        # Get field info
+        field_info = input_fields.get(variable_name)
+        if field_info is None:
+            raise ValueError(f"Unknown input field: {variable_name}")
+        
+        # Generate title
+        title = f"{custom_name if custom_name else variable_name} [{variable_name}]"
+        
+        # Create the card - config fields will be populated automatically
+        widget_card = make_reorderable_card(
+            title,
+            [],
+            parent_container=parent_container,
+            variable_name=variable_name,
+            custom_name=custom_name
+        )
+        
+        # Restore widget configuration values
+        if hasattr(widget_card, '_widget_config_fields') and widget_card._widget_config_fields:
+            for field_name, field_widget in widget_card._widget_config_fields.items():
+                if field_name in card_dict:
+                    value = card_dict[field_name]
+                    # Skip options - they're set from field_info
+                    if field_name == "options":
+                        continue
+                    try:
+                        field_widget.value = value
+                    except Exception as e:
+                        print(f"Warning: Could not set {field_name} to {value}: {e}")
+        
+        return widget_card, used_variables
+    
+    else:
+        raise ValueError(f"Unknown card type: {card_dict.get('type')}")
+
+def deserialize_layout(layout_dict: dict):
+    """Deserialize a layout dictionary and rebuild the design view"""
+    global available_input_fields
+    
+    # Clear current layout
+    cards_col.objects = []
+    all_cards.clear()
+    
+    # Clear container registry except Form
+    keys_to_remove = [k for k in container_registry.keys() if k != "Form"]
+    for key in keys_to_remove:
+        del container_registry[key]
+    
+    # Process children of the root container
+    if layout_dict.get("type") == "container":
+        children_dicts = layout_dict.get("children", [])
+        
+        for child_dict in children_dicts:
+            child_card, child_vars = deserialize_card(child_dict, cards_col)
+            cards_col.objects = list(cards_col.objects) + [child_card]
+    
+    # Update available_input_fields
+    all_used_vars = set()
+    for card, _, _ in all_cards:
+        if not card._is_container and hasattr(card, '_variable_name'):
+            all_used_vars.add(card._variable_name)
+    
+    # Restore available_input_fields
+    available_input_fields = [var for var in input_fields.keys() if var not in all_used_vars]
+    
+    # Update all dropdowns
+    update_all_dropdowns()
+    update_available_input_fields_dropdown()
+    
+    # Update rendered form
+    update_rendered_form()
+
+def download_layout_json():
+    """Generate JSON string for download"""
+    layout_dict = serialize_layout()
+    json_str = json.dumps(layout_dict, indent=2)
+    return json_str.encode('utf-8')
+
+def handle_file_upload(event):
+    """Handle file upload and deserialize the layout"""
+    if event.new is None:
+        return
+    
+    try:
+        # Read the file content
+        file_contents = event.new
+        if isinstance(file_contents, bytes):
+            file_contents = file_contents.decode('utf-8')
+        
+        # Parse JSON
+        layout_dict = json.loads(file_contents)
+        
+        # Deserialize and rebuild
+        deserialize_layout(layout_dict)
+        
+        # Clear the file input
+        file_upload.value = None
+        
+    except json.JSONDecodeError as e:
+        error_msg = pn.pane.Markdown(f"## Error loading file\n\nInvalid JSON: {str(e)}")
+        render_col.objects = [pn.Card(error_msg, title="Error", collapsible=False)]
+        print(f"Error parsing JSON: {e}")
+    except Exception as e:
+        error_msg = pn.pane.Markdown(f"## Error loading layout\n\n```\n{str(e)}\n```")
+        render_col.objects = [pn.Card(error_msg, title="Error", collapsible=False)]
+        print(f"Error loading layout: {e}")
+        import traceback
+        traceback.print_exc()
+
 # Main entrypoint
 
-main_controls = pn.Column("overall controls")
+# File download/upload widgets
+def get_layout_json_bytes():
+    """Get the current layout as JSON bytes for download"""
+    import io
+    layout_dict = serialize_layout()
+    json_str = json.dumps(layout_dict, indent=2)
+    return io.BytesIO(json_str.encode('utf-8'))
+
+file_download = pn.widgets.FileDownload(
+    callback=get_layout_json_bytes,
+    filename="form_layout.json",
+    button_type="primary",
+    label="📥 Download Layout",
+    auto=False
+)
+
+file_upload = pn.widgets.FileInput(
+    accept=".json",
+    multiple=False
+)
+file_upload.param.watch(handle_file_upload, 'value')
+
+main_controls = pn.Column(
+    pn.pane.Markdown("### Layout Controls"),
+    pn.Row(file_download, file_upload, sizing_mode="stretch_width"),
+    sizing_mode="stretch_width"
+)
 
 design_col = pn.Column(new_widget_block,
         new_container_block,
