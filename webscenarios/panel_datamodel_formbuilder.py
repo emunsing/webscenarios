@@ -285,9 +285,24 @@ card_variable_input = pn.widgets.Select(
     margin=WIDGET_MARGIN
 )
 
+master_parent_container_dropdown = pn.widgets.Select(
+    name="Initial Parent",
+    options=list(container_registry.keys()),
+    value="Form",
+    width=200,
+    margin=WIDGET_MARGIN
+)
+
 def update_all_dropdowns():
     """Update all parent_container_dropdown widgets with current container options"""
     container_names = list(container_registry.keys())
+    # Update master dropdown
+    if 'master_parent_container_dropdown' in globals():
+        master_parent_container_dropdown.options = container_names
+        # Ensure current value is still valid
+        if master_parent_container_dropdown.value not in container_names:
+            master_parent_container_dropdown.value = "Form"
+    # Update all card dropdowns
     for card, _, _ in all_cards:
         if hasattr(card, '_parent_container_dropdown'):
             card._parent_container_dropdown.options = container_names
@@ -578,8 +593,9 @@ def create_new_widget_card(_):
     # Generate title
     title = f"{custom_name if custom_name else variable_name} [{variable_name}]"
     
-    # Default to Form container
-    parent_container = container_registry.get("Form", cards_col)
+    # Get parent container from master dropdown
+    parent_container_name = master_parent_container_dropdown.value
+    parent_container = container_registry.get(parent_container_name, cards_col)
     
     # Get field info for the variable
     field_info = input_fields.get(variable_name)
@@ -619,6 +635,7 @@ new_widget_block = pn.Column(
             pn.pane.Markdown("## New Widget"),
             card_variable_input,
             card_name_input,
+            master_parent_container_dropdown,
             add_card_button,
         )
 
@@ -628,8 +645,9 @@ def create_new_container(_):
     container_type = container_type_dropdown.value
     container_name = container_name_input.value.strip()
     
+    # Require a name - button should be disabled if blank
     if not container_name:
-        container_name = f"{container_type} {len(container_registry)}"
+        return
     
     # Generate unique name if needed
     base_name = container_name
@@ -660,16 +678,23 @@ def create_new_container(_):
     parent_objs.append(container_card)
     parent_container.objects = parent_objs
     
-    # Reset input
+    # Reset inputs
     container_name_input.value = ""
+    # Button will be disabled automatically via the watch
     
     # Update rendered form
     update_rendered_form()
 
 container_type_dropdown = pn.widgets.Select(name="Container Type", options=["Row", "Collapsible Container"], value="Row")
-container_name_input = pn.widgets.TextInput(name="Container Name", value="Default")
-add_container_button = pn.widgets.Button(name="➕ Add New Container", button_type="primary", width=150)
+container_name_input = pn.widgets.TextInput(name="Container Name (required)", value="")
+add_container_button = pn.widgets.Button(name="➕ Add New Container", button_type="primary", width=150, disabled=True)
 add_container_button.on_click(create_new_container)
+
+def update_container_button_state(_):
+    """Update add_container_button state based on container_name_input"""
+    add_container_button.disabled = not container_name_input.value.strip()
+
+container_name_input.param.watch(update_container_button_state, 'value')
 
 new_container_block = pn.Column(
             pn.pane.Markdown("## New Container"),
