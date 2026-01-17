@@ -585,9 +585,6 @@ async def share_project(project_id: uuid.UUID, share_request: ShareRequest, curr
         share = ProjectShare(project_id=project_id, user_id=target_user.id)
         db_session.add(share)
         
-        # Grant access to all product configs in this project
-        for product_config in project.product_configs:
-            await grant_access_to_project_shares(project_id, product_config.id, db_session)
         
         await db_session.commit()
         return {"message": f"Project shared with {share_request.username}"}
@@ -614,15 +611,39 @@ async def unshare_project(project_id: uuid.UUID, username: str, current_user: st
         if not share:
             raise HTTPException(status_code=404, detail="Share not found")
         
-        # Revoke access from product configs
-        project = await db_session.get(Project, project_id)
-        if project:
-            for product_config in project.product_configs:
-                await revoke_access_from_project_shares(project_id, product_config.id, db_session)
         
         await db_session.delete(share)
         await db_session.commit()
         return {"message": f"Project unshared with {username}"}
+
+
+@app.get("/api/projects/{project_id}/shared-users")
+async def get_project_shared_users(project_id: uuid.UUID, current_user: str = "admin"):
+    """Get list of users who have access to a project."""
+    async with async_session_maker() as db_session:
+        from sqlalchemy import select
+        
+        # Check if current user has access to this project
+        user = await get_or_create_user(current_user, db_session)
+        project = await db_session.get(Project, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Get all users with access to this project
+        shares_result = await db_session.execute(
+            select(ProjectShare).where(ProjectShare.project_id == project_id)
+        )
+        shares = shares_result.scalars().all()
+        
+        # Get user details for each share
+        user_ids = [share.user_id for share in shares]
+        users_result = await db_session.execute(
+            select(User).where(User.id.in_(user_ids))
+        )
+        users = users_result.scalars().all()
+        
+        # Return list of usernames
+        return [{"username": user.username, "id": str(user.id)} for user in users]
 
 
 @app.put("/api/projects/{project_id}/parent", response_model=ProjectRead)
@@ -1000,6 +1021,7 @@ def create_panel_app():
                     project_options = [f"{p['name']} ({str(p['id'])[:8]})" for p in projects]
                     share_project_select.options = project_options if project_options else []
                     change_parent_project_select.options = project_options if project_options else []
+                    unshare_project_select.options = project_options if project_options else []
                     new_parent_select.options = ["None"] + project_options
                     new_product_parent_select.options = project_options if project_options else []
                     product_project_select.options = project_options if project_options else []
@@ -1019,6 +1041,11 @@ def create_panel_app():
                     share_product_select.options = product_options if product_options else []
                     unshare_product_select.options = product_options if product_options else []
                     change_product_parent_select.options = product_options if product_options else []
+                
+                # Refresh unshare users if a project is already selected
+                if unshare_project_select.value:
+                    print("Refresh unshare project users within refres_project_lists")
+                    await load_unshare_project_users()
         except Exception as e:
             logger.error(f"Error refreshing lists: {e}")
     
@@ -1353,6 +1380,41 @@ def create_panel_app():
         """Load users and refresh project lists."""
         await load_users()
         await refresh_project_lists()
+        # If a project is already selected in unshare dropdown, load its users
+        if unshare_project_select.value:
+            await load_unshare_project_users()
+    
+    # Load users for unshare project dropdown
+    async def load_unshare_project_users():
+        """Load users who have access to the selected project for unsharing."""
+        project_option = unshare_project_select.value
+        if not project_option:
+            unshare_username_select.options = []
+            return
+        
+        project_id = extract_uuid_from_option(project_option, projects_data)
+        if not project_id:
+            unshare_username_select.options = []
+            return
+        
+        current_user = get_current_user()
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"http://localhost:8000/api/projects/{project_id}/shared-users?current_user={current_user}"
+                )
+                print(f"Response for unshare project request: {response.json()}")
+                if response.status_code == 200:
+                    users = response.json()
+                    usernames = [u["username"] for u in users if u["username"] != current_user]
+                    unshare_username_select.options = usernames if usernames else []
+                    print(f"Unshare username select options: {unshare_username_select.options}")
+                else:
+                    unshare_username_select.options = []
+                    print(f"Unshare username select is empty hrm")
+        except Exception as e:
+            logger.error(f"Error loading project users: {e}")
+            unshare_username_select.options = []
     
     # Watch for user changes to refresh lists
     # Panel's parameter watch callbacks can schedule async work via on_click pattern
@@ -1372,6 +1434,21 @@ def create_panel_app():
         init_load_trigger.clicks += 1
     
     current_user_select.param.watch(on_user_change, 'value')
+    
+    # Watch for project selection changes in unshare dropdown
+    # Use button pattern for async loading
+    async def on_unshare_project_change_async(event=None):
+        """Async handler for unshare project selection changes."""
+        await load_unshare_project_users()
+    
+    unshare_project_load_trigger = pn.widgets.Button(name="Load Users", button_type="default", width=0, height=0, visible=False)
+    unshare_project_load_trigger.on_click(on_unshare_project_change_async)
+    
+    def on_unshare_project_change(event):
+        """Trigger async load of users when project is selected."""
+        unshare_project_load_trigger.clicks += 1
+    
+    unshare_project_select.param.watch(on_unshare_project_change, 'value')
     
     # Trigger initial load once by simulating a click on the hidden button
     # This happens after the layout is created but uses Panel's async support
