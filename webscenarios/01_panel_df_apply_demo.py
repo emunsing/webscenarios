@@ -204,11 +204,11 @@ class ScenarioExplorer(pn.viewable.Viewer):
 
     def remove_scenario(self, event):
         """Removes the scenarios currently checked in the Tabulator."""
-        if not self.tabulator.selected_indices:
+        if not self.tabulator.selection:
             return
 
         # Get the names of the scenarios to remove
-        scenarios_to_remove = self.df.iloc[self.tabulator.selected_indices].index
+        scenarios_to_remove = self.df.iloc[self.tabulator.selection].index
 
         # Drop them from the DataFrame
         self.df.drop(scenarios_to_remove, inplace=True)
