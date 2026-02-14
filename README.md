@@ -19,18 +19,17 @@ The uvicorn+panel demos can be run like `python <scriptname>.py` or `uvicorn <sc
 - These require a postgres server to be running, and if the default Postgres URL isn't used, the URL should be overriden with the environment variable `DATABASE_URL`.
 
 The demos go in the following order:
-- `dash_demo.py`: Not fully functional (see notes below). Dash is not able to accomplish our goals.
-- `panel_df_apply_demo.py`: Add and remove rows from a Tabulator data table, and trigger computations on data changes.
-- `panel_demo.py`: Basic demo of being able to dynamically add and remove widgets.
-- `panel_multiplying_scenario_demo.py`: Allow dynamic creation of new widgets based on the output of a process.
-- `panel_formbuilder.py`: Generate a front-end with data connection purely from a JSON-ready dictionary
-- `panel_reorder.py`: Reorder cards dynamically with up-and-down buttons 
-- `panel_reorder_containers.py`: Create new Rows and Columns dynamically, allowing widgets to be shifted between parents
-- `panel_datamodel.py`: Tie widgets to specific data model inputs, removing them from availability if they are bound
-- `panel_datamodel_formbuilder.py`: Download the data model as a JSON-ready dictionary, and re-generate the front-end from that
-- `panel_database_reader.py`: Demonstration of the ability to read/write to a database with Panel
-- `panel_db_reader_with_auth.py`: Basic relationship-based access controls with admins, users, sharing/unsharing "projects" (folders) with other users, and individual projects which belong to folders.
-
+- `00_dash_demo.py`: Not fully functional (see notes below). Dash is not able to accomplish our goals.
+- `01_panel_df_apply_demo.py`: Add and remove rows from a Tabulator data table, and trigger computations on data changes.
+- `02_panel_demo.py`: Basic demo of being able to dynamically add and remove widgets.
+- `03_panel_multiplying_scenario_demo.py`: Allow dynamic creation of new widgets based on the output of a process.
+- `04_panel_formbuilder.py`: Generate a front-end with data connection purely from a JSON-ready dictionary
+- `05_panel_reorder.py`: Reorder cards dynamically with up-and-down buttons 
+- `06_panel_reorder_containers.py`: Create new Rows and Columns dynamically, allowing widgets to be shifted between parents
+- `07_panel_datamodel.py`: Tie widgets to specific data model inputs, removing them from availability if they are bound
+- `08_panel_datamodel_formbuilder.py`: Download the data model as a JSON-ready dictionary, and re-generate the front-end from that
+- `09_uvicorn_panel_database_reader.py`: Demonstration of the ability to read/write to a database with Panel
+- `10_uvicorn_panel_db_reader_with_users.py`: Basic relationship-based access controls with admins, users, sharing/unsharing "projects" (folders) with other users, and individual projects which belong to folders.
 
 ## Dash
 Dash is clearly designed for statically configured dashboards. It is unable to live-select dynamically created 
