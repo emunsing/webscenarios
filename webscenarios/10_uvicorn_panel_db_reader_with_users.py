@@ -34,6 +34,35 @@ engine = create_async_engine(DATABASE_URL, echo=True)
 async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
+"""
+MAIN PROMPT:
+I want to build a multi-tenant relation-based access control (ReBAC) system around a B2B software tool, which is here represented by the toy model of a Panel application which interfaces with a database.
+
+We want to be able to extend the existing application to demonstrate how we would implement ReBAC for the basic functions of the database (create, load, edit, and save a product configuration; create a new project folder and assign it as the parent of a project configuration)
+
+I'm developing the backend in Python on FastAPI.  We need to have:
+- Superusers (employees of my companies)
+- Client Organizations (companies)
+- Managers associated with a Client Organization, who can create Employees of their own companies
+- Product Configurations, the lowest level of data.  Product Configurations can only belong to one Project.
+- Projects, which are effectively folders or tags for sorting and managing visibility of Product Configurations.  Projects can be nested.
+- Client Employees (users) who are able to see and manage the Product Configurations which they create, and can create new Projects and share them with other Client Employees within their Client Organization
+- Only one Client Employee should be able to edit a Product Configuration at a time
+
+I want to think about the database model for how we'd structure this, particularly because of the way we want sharing to update across Projects and Project Configurations. 
+- a Project / folder can be shared to many client employees.
+- When a new Product configuration is created, it should be automatically shared/visible to the person who created it 
+- A Client Employee should only be able to see Project Configurations which have been shared.
+- When a new Client Employee is added to the Project's sharing list, the client should have access to all the Product Configurations within the Project.  
+- When a Product Configuration is assigned to a Project, the access should update across all Client Employees with whom that Project has been shared.
+- Similarly, when a Client Employee is removed from the sharing list for a Project, or a Product Configuration is moved out of projects to which the Client Employee has access, they should no longer be able to see the Product Configuration.
+
+Can you update 10_uvicorn_panel_db_reader_with_auth.py to add  data structures needed to support this functionality?  To make things simple for now:
+- let's not worry about user creation/deletion; just automatically create a user anytime that the `created_by` field value doesn't exist in our user table.  
+- Keep the existing CRUD interface for the Product definitions in a Panel Column.  
+- Let's add another colum to the left which allows us to choose which user we're logged in as, and allows us to operate on the product/project metadata:   1. share a project/product with another user 2. Remove a user from a project/product 3. Create a new Project. 4. Change the parent for a project/product.
+"""
+
 class Base(DeclarativeBase):
     pass
 
