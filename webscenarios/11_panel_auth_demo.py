@@ -1,5 +1,7 @@
 import panel as pn
 
+### THIS IS TAKEN DIRECTLY FROM THE PANEL DOCS
+
 pn.extension(template="fast")
 
 logout = pn.widgets.Button(name="Log out")

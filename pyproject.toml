@@ -26,6 +26,7 @@ python-multipart = "*"
 pydantic = {extras = ["email"], version = "*"}
 python-dotenv = "*"
 httpx = "*"
+supabase = "*"
 
 [build-system]
 requires = ["poetry-core"]

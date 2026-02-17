@@ -16,6 +16,7 @@ building the full toolkit.
 The simple panel demos can be run like `panel serve --show --autoreload <scriptname>.py`
 
 The uvicorn+panel demos can be run like `python <scriptname>.py` or `uvicorn <scriptname>:app --reload --port 8000`
+- IMPORTANT: See the below note about websocket gotchas when running Panel with Uvicorn
 - These require a postgres server to be running, and if the default Postgres URL isn't used, the URL should be overriden with the environment variable `DATABASE_URL`.
 
 The demos go in the following order:
@@ -47,6 +48,17 @@ To run panel in auto-reload mode:
 ```
 panel serve panel_demo.py --autoreload --show
 ```
+
+## Panel + Uvicorn Gotchas
+
+### Cookie size
+Websocket has a limited cookie capacity.  If you have been using `localhost` for a lot of development, you may have
+accumulated many cookies, to the point that Bokeh/Websocket will refuse to parse the cookies when the HTTP request is
+handed from Uvicorn to Bokeh. **This can result in a silent failure which produces no logs but the app doesn't load.**
+
+To diagnose this:
+- Check whether you are able to run successfully from 0.0.0.0 or 127.0.0.1 instead of localhost
+- Try clearing the local site cookies (Chrome Inspect -> Applications -> Cookies)
 
 ## Panel_df_apply_demo.py
 
@@ -91,3 +103,6 @@ while Flask doesn't provide any error messages.
 To debug this: 
 - Without Flask running, confirm whether there are any processes listening to localhost:5000 by running `$ lsof -i :5000`.
 - **If you see any other processes listening to localhost:5000, change the port which Flask is being served on to something free
+
+## Supabase, auth, and RLS
+[Helpful blog post by dob about RLS in SqlAlchemy](https://dobken.nl/posts/rls-postgres/)
