@@ -31,6 +31,8 @@ The demos go in the following order:
 - `08_panel_datamodel_formbuilder.py`: Download the data model as a JSON-ready dictionary, and re-generate the front-end from that
 - `09_uvicorn_panel_database_reader.py`: Demonstration of the ability to read/write to a database with Panel
 - `10_uvicorn_panel_db_reader_with_users.py`: Basic relationship-based access controls with admins, users, sharing/unsharing "projects" (folders) with other users, and individual projects which belong to folders.
+- `11_panel_auth_demo.py`: Panel documentation's own demonstration of how to set up OAuth with Panel
+- `12a_supabase_simple_oauth.py`: Basic PKCE OAuth with Supabase client
 
 ## Dash
 Dash is clearly designed for statically configured dashboards. It is unable to live-select dynamically created 
