@@ -32,7 +32,9 @@ The demos go in the following order:
 - `09_uvicorn_panel_database_reader.py`: Demonstration of the ability to read/write to a database with Panel
 - `10_uvicorn_panel_db_reader_with_users.py`: Basic relationship-based access controls with admins, users, sharing/unsharing "projects" (folders) with other users, and individual projects which belong to folders.
 - `11_panel_auth_demo.py`: Panel documentation's own demonstration of how to set up OAuth with Panel
-- `12a_supabase_simple_oauth.py`: Basic PKCE OAuth with Supabase client
+
+A more advanced set of tutorials are in the [simple_saas](https://github.com/emunsing/simple_saas) repo, which adds auth
+and multi-tenancy to the type of Panel applications used here.
 
 ## Dash
 Dash is clearly designed for statically configured dashboards. It is unable to live-select dynamically created 
@@ -105,6 +107,3 @@ while Flask doesn't provide any error messages.
 To debug this: 
 - Without Flask running, confirm whether there are any processes listening to localhost:5000 by running `$ lsof -i :5000`.
 - **If you see any other processes listening to localhost:5000, change the port which Flask is being served on to something free
-
-## Supabase, auth, and RLS
-[Helpful blog post by dob about RLS in SqlAlchemy](https://dobken.nl/posts/rls-postgres/)
