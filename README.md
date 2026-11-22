@@ -19,8 +19,12 @@ The uvicorn+panel demos can be run like `python <scriptname>.py` or `uvicorn <sc
 - IMPORTANT: See the below note about websocket gotchas when running Panel with Uvicorn
 - These require a postgres server to be running, and if the default Postgres URL isn't used, the URL should be overriden with the environment variable `DATABASE_URL`.
 
-The demos go in the following order:
+### Demos, in order:
+
+Dash
 - `00_dash_demo.py`: Not fully functional (see notes below). Dash is not able to accomplish our goals.
+
+Panel: Serve with `panel serve --show --autoreload <scriptname>.py`
 - `01_panel_df_apply_demo.py`: Add and remove rows from a Tabulator data table, and trigger computations on data changes.
 - `02_panel_demo.py`: Basic demo of being able to dynamically add and remove widgets.
 - `03_panel_multiplying_scenario_demo.py`: Allow dynamic creation of new widgets based on the output of a process.
@@ -29,11 +33,16 @@ The demos go in the following order:
 - `06_panel_reorder_containers.py`: Create new Rows and Columns dynamically, allowing widgets to be shifted between parents
 - `07_panel_datamodel.py`: Tie widgets to specific data model inputs, removing them from availability if they are bound
 - `08_panel_datamodel_formbuilder.py`: Download the data model as a JSON-ready dictionary, and re-generate the front-end from that
+
+Uvicorn: Serve with `uvicorn <scriptname>:app --reload --port 8000`
 - `09_uvicorn_panel_database_reader.py`: Demonstration of the ability to read/write to a database with Panel
 - `10_uvicorn_panel_db_reader_with_users.py`: Basic relationship-based access controls with admins, users, sharing/unsharing "projects" (folders) with other users, and individual projects which belong to folders.
 - `11_panel_auth_demo.py`: Panel documentation's own demonstration of how to set up OAuth with Panel
 
-A more advanced set of tutorials are in the [simple_saas](https://github.com/emunsing/simple_saas) repo, which adds auth
+**The most current status of the work** is captured by these two demos:
+- `08_panel_datamodel_formbuilder.py`: User interaction and wrapper for data models
+- `10_uvicorn_panel_db_reader_with_users.py`: User admin pane with example of connection to backend.
+This is the basis for the [simple_saas](https://github.com/emunsing/simple_saas) repo, which adds auth
 and multi-tenancy to the type of Panel applications used here.
 
 ## Dash
