@@ -28,6 +28,9 @@ python-dotenv = "*"
 httpx = "*"
 supabase = "*"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.2.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
